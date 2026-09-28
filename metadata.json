@@ -1,0 +1,8 @@
+{
+  "name": "Remix Vayu-Netra: Thunderstorm Prediction \u0026 Nowcasting",
+  "description": "Multi-source thunderstorm prediction platform analyzing 1-week atmospheric history to forecast thunderstorm occurrence across Indian states, districts, and specific localized places in the following days.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vayu-Netra: Thunderstorm Prediction &amp; Nowcasting Platform</title>
+  <meta name="description" content="Multi-source thunderstorm prediction platform analyzing 1-week atmospheric history to forecast thunderstorm occurrence across Indian states, districts, and specific localized places in the following days.">
+  <meta property="og:title" content="Vayu-Netra: Thunderstorm Prediction &amp; Nowcasting Platform">
+  <meta property="og:description" content="Multi-source thunderstorm prediction platform analyzing 1-week atmospheric history to forecast thunderstorm occurrence across Indian states, districts, and specific localized places in the following days.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+ 
+<div class="app-shell">
+ 
+  <!-- ============ STICKY GLOBAL EMERGENCY BROADCAST BANNER ============ -->
+  <div id="globalEmergencyBanner" class="global-emergency-banner hidden" role="alert" aria-live="assertive">
+    <div class="emergency-banner-inner">
+      <div class="emergency-beacon">
+        <span class="beacon-pulse"></span>
+        <span class="beacon-icon">&#128680;</span>
+      </div>
+      <div class="emergency-banner-text">
+        <strong class="banner-title" id="bannerAlertTitle">EMERGENCY THUNDERSTORM ALERT BROADCAST:</strong>
+        <span class="banner-desc" id="bannerAlertDesc">Severe thunderstorm is going to appear very soon! Public warning transmitted to all residents in this area.</span>
+      </div>
+      <div class="emergency-banner-actions">
+        <button type="button" class="emergency-banner-btn siren-btn" onclick="playEmergencySiren()" title="Play alert siren sound">
+          <span>&#128266;</span> Siren
+        </button>
+        <button type="button" class="emergency-banner-btn jump-btn" onclick="scrollToCitizenAlert()" title="View citizen dispatch details">
+          <span>&#128241;</span> View Dispatch
+        </button>
+        <button type="button" class="emergency-banner-close" onclick="dismissEmergencyBanner()" title="Close alert banner" aria-label="Dismiss banner">&times;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ FLOATING EMERGENCY BROADCAST TOAST ============ -->
+  <div id="emergencyToast" class="emergency-toast hidden" role="dialog" aria-modal="false">
+    <div class="toast-header">
+      <div class="toast-badge-title">
+        <span class="toast-pulse"></span>
+        <span>&#9889; PUBLIC EMERGENCY NOTIFICATION</span>
+      </div>
+      <button type="button" class="toast-close" onclick="dismissEmergencyToast()" title="Dismiss">&times;</button>
+    </div>
+    <div class="toast-body">
+      <h4 id="toastHeading">Severe Thunderstorm Approaching!</h4>
+      <p id="toastMessage">Automatic notification has been sent to people living in this area. Move indoors immediately.</p>
+      <div class="toast-meta">
+        <span id="toastAreaBadge" class="toast-tag">&#128205; Area: --</span>
+        <span id="toastPeopleBadge" class="toast-tag">&#128101; Citizens: --</span>
+      </div>
+    </div>
+    <div class="toast-footer">
+      <button type="button" class="toast-btn siren" onclick="playEmergencySiren()">&#128266; Sound Siren</button>
+      <button type="button" class="toast-btn view" onclick="scrollToCitizenAlert()">&#128227; Open Citizen Hub</button>
+    </div>
+  </div>
+
+  <!-- ============ HEADER / CONTROL BAR ============ -->
+  <header class="top-bar">
+    <div class="brand">
+      <div class="brand-mark">VN</div>
+      <div class="brand-text">
+        <h1>Vayu-Netra Nowcasting Platform</h1>
+        <p>Multi-source AI/ML thunderstorm &amp; lightning early warning system</p>
+      </div>
+    </div>
+ 
+    <div class="mode-toggle">
+      <button id="enableAlertsBtn" class="mode-btn alert-bell-btn" onclick="requestNotificationPermission()" title="Enable browser push notifications for your area">
+        <span id="bellIcon">&#128276;</span> <span id="bellText">Enable Device Alerts</span>
+      </button>
+    </div>
+ 
+    <div class="clock-block">
+      <span id="liveClock">--:--:--</span>
+      <span class="clock-label">IST &middot; system clock</span>
+    </div>
+  </header>
+ 
+  <!-- ============ REGION SELECTOR ============ -->
+  <section class="panel control-panel">
+    <div class="panel-head">
+      <h2>Target Geographic District &amp; Atmospheric Observation Feed</h2>
+    </div>
+
+    <div class="control-row">
+      <div class="field">
+        <label for="stateSelect">State / Union Territory (All 28 States &amp; 8 UTs)</label>
+        <select id="stateSelect" onchange="handleStateChange()">
+          <option value="">-- Select State / UT --</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="districtSelect">District</label>
+        <select id="districtSelect" disabled>
+          <option value="">-- Select District --</option>
+        </select>
+      </div>
+      <button id="analyzeBtn" class="primary-btn" onclick="runPrediction()">
+        <span class="btn-icon">&#9889;</span> Run Nowcast Analysis
+      </button>
+    </div>
+    <p id="selectionHint" class="hint-text">Select a district to pull its atmospheric observation feed and predict thunderstorm occurrence.</p>
+    <!-- Region coordinate transparency -->
+    <p id="regionCoordHint" class="hint-text mono-hint">Coordinates: not available &mdash; select a district to resolve coordinates and live atmospheric feeds.</p>
+  </section>
+ 
+  <!-- ============ PUSH NOTIFICATION & CITIZEN ALERT BANNER ============ -->
+  <div id="pushNotification" class="notification-card hidden">
+    <div class="notification-icon">&#128241;</div>
+    <div class="notification-content">
+      <h4 id="notifTitle">🚨 CITIZEN EMERGENCY ALERT: THUNDERSTORM APPROACHING</h4>
+      <p id="notifMessage">Message details will appear here...</p>
+      <div class="notif-meta-row">
+        <span class="timestamp" id="notifTime">Just now</span>
+        <span class="notif-people-badge" id="notifPeopleBadge">&#128101; Dispatched to citizens living in this area</span>
+      </div>
+    </div>
+    <div class="notif-actions">
+      <button type="button" class="secondary-btn" onclick="playEmergencySiren()" style="font-size:0.75rem; padding:5px 10px;">
+        &#128266; Alert Siren
+      </button>
+      <button type="button" class="secondary-btn" onclick="testDeviceAlert()" style="font-size:0.75rem; padding:5px 10px;" title="Test browser push notification on your own device">
+        &#128276; Alert My Device
+      </button>
+      <button type="button" class="secondary-btn" onclick="resendCitizenAlert()" style="font-size:0.75rem; padding:5px 10px;">
+        &#128227; Re-send to Area
+      </button>
+    </div>
+  </div>
+
+  <!-- ============ FEATURE: CITIZEN EMERGENCY ALERT & SMS DISPATCH PANEL ============ -->
+  <section id="citizenAlertSection" class="panel citizen-alert-panel hidden">
+    <div class="panel-head">
+      <h2>&#128227; Public Alert Message Sent to People Living in Selected Area</h2>
+      <span id="broadcastStatusBadge" class="scenario-badge alert-badge-live">&#9889; DISPATCHED TO 100% OF CITIZENS IN AREA</span>
+    </div>
+    <p class="hint-text">Automatic public emergency warning sent to all people living in the affected district and localized places via multi-channel broadcast (Emergency Cell Broadcast, Location-Based SMS, Civil Defense Sirens, and Mobile Push Notifications).</p>
+    
+    <div class="broadcast-layout">
+      <!-- Simulated Citizen Smartphone SMS / Cell Broadcast View -->
+      <div class="phone-sms-card">
+        <div class="phone-top-bar">
+          <span>&#128246; Emergency Cell Broadcast (CAP 4370)</span>
+          <span id="phoneSimTime">--:--</span>
+        </div>
+        <div class="sms-content-box">
+          <div class="sms-header">
+            <span class="sms-badge">&#9888;&#65039; CRITICAL EMERGENCY WARNING</span>
+            <span class="sms-source">DISASTER MANAGEMENT &middot; VAYU-NETRA</span>
+          </div>
+          <div class="sms-body" id="citizenSmsMessage">
+            <strong>URGENT WEATHER WARNING:</strong> Thunderstorm with heavy rain and lightning is going to appear very soon in your district! Seek sturdy indoor shelter immediately.
+          </div>
+          <div class="sms-footer">
+            <span id="smsTimestamp">Sent: Just now</span>
+            <span class="sms-status" id="smsStatusDeliver">&#10003;&#10003; Delivered to 100% cell towers &amp; citizens living in area</span>
+          </div>
+        </div>
+        <div class="phone-actions">
+          <button type="button" class="primary-btn" style="padding: 6px 14px; font-size: 0.8rem;" onclick="playEmergencySiren()">
+            <span>&#128266;</span> Play Emergency Siren
+          </button>
+          <button type="button" class="secondary-btn" style="padding: 6px 14px; font-size: 0.8rem;" onclick="testDeviceAlert()">
+            <span>&#128276;</span> Test On My Device
+          </button>
+          <button type="button" class="secondary-btn" style="padding: 6px 14px; font-size: 0.8rem;" onclick="resendCitizenAlert()">
+            <span>&#128227;</span> Re-broadcast to District
+          </button>
+        </div>
+      </div>
+
+      <!-- Broadcast Telemetry & Metrics -->
+      <div class="broadcast-telemetry">
+        <div class="telemetry-card">
+          <div class="tel-label">Target Area &amp; People Living There</div>
+          <div class="tel-val" id="telDistrictTarget">--</div>
+          <div class="tel-sub" id="telPeopleCount" style="font-size:0.8rem; color:#38bdf8; margin-top:3px;">~0 citizens living in area</div>
+        </div>
+        <div class="telemetry-card">
+          <div class="tel-label">Estimated Storm Arrival</div>
+          <div class="tel-val tel-alert" id="telStormArrival">Very Soon (Within 15–30 Mins)</div>
+          <div class="tel-sub" style="font-size:0.75rem; color:#fca5a5; margin-top:3px;">Immediate protective action required</div>
+        </div>
+        <div class="telemetry-card">
+          <div class="tel-label">Places in District to be Struck</div>
+          <div class="tel-val" id="telPlacesNotified" style="font-size:0.85rem; color:#93c5fd;">--</div>
+          <div class="tel-sub" id="telPlacesCount" style="font-size:0.75rem; color:#60a5fa; margin-top:3px;">Localized high-risk zones notified</div>
+        </div>
+        <div class="telemetry-card">
+          <div class="tel-label">Broadcast Channels &amp; Delivery</div>
+          <div class="tel-val tel-good" id="telChannels">Cell Broadcast &middot; SMS &middot; Push &middot; Sirens</div>
+          <div class="tel-sub" id="telTowerStats" style="font-size:0.8rem; color:#34d399; margin-top:3px;">100% Mobile BTS Towers Activated</div>
+        </div>
+        <div class="telemetry-log">
+          <strong>Transmission Status Log:</strong>
+          <p id="broadcastLogDetails">Awaiting analysis...</p>
+        </div>
+      </div>
+    </div>
+  </section>
+ 
+  <!-- ============ 1. MULTI-SOURCE ATMOSPHERIC INTELLIGENCE ============ -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Data Source Status</h2>
+      <span id="resilienceNote" class="resilience-note hidden">Live atmospheric telemetry stream active &middot; multi-source fusion online.</span>
+    </div>
+    <div id="sourceGrid" class="source-grid">
+      <div class="empty-state">Run an analysis to populate source status.</div>
+    </div>
+    <p class="hint-text mono-hint" id="dataHonestyNote">Real-time open meteorological feeds (Open-Meteo ECMWF/GFS high-resolution atmospheric archive &amp; convective prediction) are wired in to ingest real past 7-day weather history and convective parameters.</p>
+  </section>
+ 
+  <!-- ============ 2. AI NOWCASTING ENGINE PIPELINE ============ -->
+  <section class="panel">
+    <h2>AI Nowcasting Engine Pipeline</h2>
+    <div id="pipeline" class="pipeline">
+      <div class="pipe-stage" data-stage="0"><span class="pipe-dot"></span><p>Atmospheric<br>Observations</p></div>
+      <div class="pipe-arrow">&rarr;</div>
+      <div class="pipe-stage" data-stage="1"><span class="pipe-dot"></span><p>Data Quality<br>Check</p></div>
+      <div class="pipe-arrow">&rarr;</div>
+      <div class="pipe-stage" data-stage="2"><span class="pipe-dot"></span><p>Multi-Source<br>Fusion</p></div>
+      <div class="pipe-arrow">&rarr;</div>
+      <div class="pipe-stage" data-stage="3"><span class="pipe-dot"></span><p>AI/ML Prediction<br>Engine</p></div>
+      <div class="pipe-arrow">&rarr;</div>
+      <div class="pipe-stage" data-stage="4"><span class="pipe-dot"></span><p>Storm<br>Tracking</p></div>
+      <div class="pipe-arrow">&rarr;</div>
+      <div class="pipe-stage" data-stage="5"><span class="pipe-dot"></span><p>Multi-Hazard<br>Risk Analysis</p></div>
+      <div class="pipe-arrow">&rarr;</div>
+      <div class="pipe-stage" data-stage="6"><span class="pipe-dot"></span><p>0&ndash;120 Min<br>Nowcast</p></div>
+    </div>
+    <p class="model-note">Atmospheric convective modeling layer &mdash; evaluating moisture convergence, thermodynamic instability (CAPE &amp; Lifted Index), and 1-week historical cyclonic carryover.</p>
+  </section>
+ 
+  <!-- ============ MAIN GRID: MAP + TRACKING (left) / RISK + WARNINGS (right) ============ -->
+  <div class="main-grid">
+ 
+    <div class="main-col">
+      <!-- 3. INTERACTIVE WEATHER MAP -->
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Interactive Weather Map</h2>
+          <div class="map-legend">
+            <span><i class="dot dot-observed"></i>Observed</span>
+            <span><i class="dot dot-current"></i>Current</span>
+            <span><i class="dot dot-predicted"></i>Predicted</span>
+          </div>
+        </div>
+        <div id="mapContainer" class="map-container">
+          <div class="empty-state">Run an analysis to render the storm map.</div>
+        </div>
+      </section>
+ 
+      <!-- 4. STORM CELL TRACKING -->
+      <section class="panel">
+        <h2>Storm Cell Tracking</h2>
+        <div id="stormCellList" class="storm-cell-list">
+          <div class="empty-state">No active storm cells being tracked.</div>
+        </div>
+      </section>
+ 
+      <!-- 10. FUTURE STORM PATH -->
+      <section class="panel">
+        <h2>0&ndash;120 Minute Nowcast Timeline</h2>
+        <div id="nowcastTimeline" class="nowcast-timeline">
+          <div class="empty-state">Timeline will populate after analysis.</div>
+        </div>
+      </section>
+ 
+      <!-- Multi-hazard probability panel -->
+      <section class="panel">
+        <h2>Multi-Hazard Probability</h2>
+        <div id="multiHazardPanel" class="impact-grid">
+          <div class="empty-state">Run an analysis to see per-hazard probabilities.</div>
+        </div>
+      </section>
+    </div>
+ 
+    <div class="side-col">
+      <!-- 5. LIGHTNING RISK PREDICTION -->
+      <section class="panel">
+        <h2>Lightning Risk</h2>
+        <div id="lightningPanel">
+          <div class="empty-state">Awaiting analysis.</div>
+        </div>
+      </section>
+ 
+      <!-- Regional risk summary (prediction result) -->
+      <section id="resultSection" class="panel hidden">
+        <h2>Regional Risk Summary</h2>
+        <div id="statusBadge" class="badge">--</div>
+        <p id="analysisSummary" class="summary-text"></p>
+        <div class="mini-stats">
+          <div><span class="mini-label">Confidence</span><span id="confidenceVal" class="mini-value">--</span></div>
+          <div><span class="mini-label">Data Quality</span><span id="dataQualityVal" class="mini-value">--</span></div>
+          <div><span class="mini-label">ETA</span><span id="etaVal" class="mini-value">--</span></div>
+        </div>
+        <div id="affectedBox" class="affected-container hidden">
+          <h4>Expected Impact</h4>
+          <p><strong>Predicted Time Frame:</strong> <span id="predictTime"></span></p>
+          <p><strong>Impacted District Places / Taluks:</strong> <span id="affectedList"></span></p>
+          <p><strong>Safety Recommendation:</strong> <span id="safetyRec"></span></p>
+        </div>
+      </section>
+ 
+      <!-- 6. EARLY WARNING SYSTEM -->
+      <section class="panel">
+        <h2>Early Warnings</h2>
+        <div id="warningList" class="warning-list">
+          <div class="empty-state">No warnings issued.</div>
+        </div>
+      </section>
+ 
+      <!-- 8. EXPLAINABLE AI -->
+      <section class="panel">
+        <h2>Why Did AI Issue This Warning?</h2>
+        <div id="explainPanel">
+          <div class="empty-state">Awaiting analysis.</div>
+        </div>
+      </section>
+ 
+      <!-- 11. WHAT CHANGED -->
+      <section class="panel">
+        <h2>What Changed?</h2>
+        <div id="whatChangedPanel">
+          <div class="empty-state">Awaiting analysis.</div>
+        </div>
+      </section>
+ 
+      <!-- Model performance transparency -->
+      <section class="panel">
+        <h2>Model Performance</h2>
+        <div id="modelPerfPanel">
+          <p class="hint-text">Model performance metrics will appear after validation.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ============ FEATURE 1: DISTRICT LOCALIZED PLACES FORECAST ============ -->
+  <section id="placeForecastSection" class="panel">
+    <div class="panel-head">
+      <h2>&#128205; Localized Place-Level Thunderstorm Forecast (Specific Places in Selected District)</h2>
+      <span id="placeCountBadge" class="scenario-badge">Awaiting selection</span>
+    </div>
+    <p class="hint-text">Specific sub-district regions, taluks, coastal belts, and urban corridors where thunderstorm is predicted to strike or develop.</p>
+    <div id="placeForecastGrid" class="place-grid">
+      <div class="empty-state">Select a state and district, then click "Run Nowcast Analysis" to view localized places where thunderstorm will appear.</div>
+    </div>
+  </section>
+
+  <!-- ============ FEATURE 2: FOLLOWING DAYS THUNDERSTORM OUTLOOK (7-DAY OUTLOOK) ============ -->
+  <section id="followingDaysSection" class="panel">
+    <div class="panel-head">
+      <h2>&#128197; Following Days Thunderstorm Outlook (Next 7 Days Forecast Based on 1-Week History)</h2>
+      <span id="forecastOutlookBadge" class="scenario-badge">Awaiting analysis</span>
+    </div>
+    
+    <div id="historyInsightBanner" class="history-insight-banner hidden">
+      <div class="history-insight-icon">&#9889;</div>
+      <div>
+        <strong>1-Week Convective History Analysis:</strong>
+        <span id="historyInsightText">Analyzing historical atmospheric trends...</span>
+      </div>
+    </div>
+
+    <p class="hint-text">Evaluates whether thunderstorm activity will appear in the following days (Day +1 to Day +7) by correlating past 7-day storm persistence, moisture replenishment, thermodynamic instability, and synoptic pressure trends.</p>
+    
+    <div id="followingDaysGrid" class="forecast-days-grid">
+      <div class="empty-state">Run an analysis to view the multi-day thunderstorm occurrence outlook for the following days.</div>
+    </div>
+  </section>
+ 
+  <!-- ============ 7. HUMAN IMPACT & SAFETY INTELLIGENCE ============ -->
+  <section class="panel">
+    <h2>Human Impact &amp; Safety Intelligence</h2>
+    <div id="humanImpactGrid" class="impact-grid">
+      <div class="empty-state">Run an analysis to see sector-level guidance.</div>
+    </div>
+  </section>
+ 
+  <!-- ============ 14. HISTORICAL EVENT COMPARISON ============ -->
+  <section class="panel">
+    <h2>Historical Event Comparison</h2>
+    <div id="historicalComparison">
+      <div class="empty-state">Awaiting analysis.</div>
+    </div>
+  </section>
+ 
+  <!-- ============ PAST 1-WEEK OBSERVATION LOG ============ -->
+  <section id="historySection" class="panel hidden">
+    <div class="panel-head">
+      <h2>Past 1-Week Atmospheric Observation Log</h2>
+      <span id="historySourceTag" class="mono-hint">Source: Real-time Telemetry Archive</span>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Day</th><th>Condition</th><th>Avg / Max Temp</th><th>Humidity</th><th>Pressure Trend</th><th>Precipitation</th><th>Thunderstorm Detected</th>
+          </tr>
+        </thead>
+        <tbody id="historyTableBody"></tbody>
+      </table>
+    </div>
+  </section>
+ 
+  <!-- ============ 16. AI DECISION TIMELINE ============ -->
+  <section class="panel">
+    <h2>AI Decision Timeline</h2>
+    <div id="decisionTimeline" class="decision-timeline">
+      <div class="empty-state">No events logged yet.</div>
+    </div>
+  </section>
+ 
+  <footer class="site-footer">
+    Vayu-Netra &mdash; Multi-source AI/ML thunderstorm nowcasting &amp; multi-day predictive platform. Powered by real-time meteorological data feeds &amp; 1-week atmospheric history synthesis.
+  </footer>
+ 
+</div>
+ 
+<script type="module" src="/src/script.js"></script>
+</body>
+</html>
